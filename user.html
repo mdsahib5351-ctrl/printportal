@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#1264ff">
+  <title>Print Portal — Document Print Studio</title>
+  <link rel="stylesheet" href="user.css">
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <header class="topbar">
+      <div class="brand"><div class="brand-mark">P</div><div><strong>Print Portal</strong><span>Document Print Studio</span></div></div>
+      <div class="top-actions">
+        <button class="wallet-chip" id="walletBtn" aria-label="Wallet">₹ <b id="walletBalance">₹0</b></button><button class="icon-btn notification-btn" id="notificationBtn" aria-label="Notifications">♢<em id="notificationBadge" class="notify-badge hidden">0</em></button><button class="icon-btn menu-btn" id="menuBtn" aria-label="Menu">☰</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div>
+          <span class="eyebrow">PRINT SMART • PRINT FAST</span>
+          <h1>Your documents,<br><span>ready to print.</span></h1>
+          <p>Crop, arrange and export documents on your phone with precise A4 and PVC sizing.</p>
+        </div>
+        <div class="hero-art"><div class="hero-card">A4</div><div class="hero-card small">ID</div></div>
+      </section>
+
+      <section class="section">
+        <div class="section-head"><div><span class="eyebrow">QUICK PRINT</span><h2>Start instantly</h2></div></div>
+        <div class="quick-grid">
+          <button class="quick-card" data-action="pvc">
+            <span class="quick-icon">▣</span><span><b>PVC Card Print</b><small>85.6 × 54 mm • front & back</small></span><i>›</i>
+          </button>
+          <button class="quick-card" data-action="passport">
+            <span class="quick-icon">▦</span><span><b>Passport Photo</b><small>33:45 crop • multi-photo A4</small></span><i>›</i>
+          </button>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head"><div><span class="eyebrow">DOCUMENT SERVICES</span><h2>All services</h2></div><button class="text-btn" id="allServicesBtn">View all</button></div>
+        <div id="serviceScroller" class="service-scroller"><div class="skeleton service-skeleton"></div><div class="skeleton service-skeleton"></div><div class="skeleton service-skeleton"></div></div>
+      </section>
+
+      <section class="section">
+        <div class="section-head"><div><span class="eyebrow">TOOLS</span><h2>Quick tools</h2></div><button class="text-btn" id="allToolsBtn">View all</button></div>
+        <div id="toolsGrid" class="tools-grid">
+          <button class="tool-card" data-tool="jpg-pdf"><span>JPG</span><b>JPG → PDF</b><small>Multiple images</small></button>
+          <button class="tool-card" data-tool="pdf-jpg"><span>PDF</span><b>PDF → JPG</b><small>All pages</small></button>
+          <button class="tool-card" data-tool="compress-jpg"><span>IMG</span><b>Compress JPG</b><small>High / Medium / Low</small></button>
+          <button class="tool-card" data-tool="merge-pdf"><span>PDF+</span><b>Merge PDF</b><small>Keep page order</small></button>
+          <button class="tool-card" data-tool="split-pdf"><span>PDF÷</span><b>Split PDF</b><small>Extract pages</small></button>
+          <button class="tool-card" data-tool="rotate-pdf"><span>↻</span><b>Rotate PDF</b><small>Rotate pages</small></button>
+          <button class="tool-card" data-tool="compress-pdf"><span>ZIP</span><b>Compress PDF</b><small>Reduce file size</small></button>
+          <button class="tool-card" data-tool="unlock-pdf"><span>🔓</span><b>Unlock PDF</b><small>Save unlocked copy</small></button>
+        </div>
+      </section>
+
+      <section class="section recent-section">
+        <div class="section-head"><div><span class="eyebrow">ACTIVITY</span><h2>Recent jobs</h2></div></div>
+        <div id="recentJobs" class="recent-list"><div class="empty-state"><span>◌</span><b>No recent jobs</b><small>Your completed print/export jobs will appear here.</small></div></div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav">
+      <button class="active"><span>⌂</span>Home</button>
+      <button id="bottomServices"><span>▦</span>Services</button>
+      <button id="bottomJobs"><span>◷</span>Jobs</button>
+      <button id="bottomProfile"><span>◉</span>Profile</button>
+    </nav>
+  </div>
+
+  <div id="authModal" class="modal hidden"><div class="modal-card auth-card">
+    <button class="modal-close" data-close="authModal">×</button>
+    <div class="modal-title"><span class="brand-mark">P</span><div><h3 id="authTitle">Welcome back</h3><p id="authSub">Sign in to continue</p></div></div>
+    <div id="loginForm" class="form-stack">
+      <label>Email, username or mobile<input id="loginIdentifier" autocomplete="username" placeholder="you@example.com"></label>
+      <label>Password<input id="loginPassword" type="password" autocomplete="current-password" placeholder="••••••••"></label>
+      <button class="primary-btn" id="loginBtn">Login</button>
+      <button class="link-btn" id="forgotBtn">Forgot password?</button>
+      <p class="switch-line">New here? <button class="link-btn" id="showSignup">Create account</button></p>
+    </div>
+    <div id="signupForm" class="form-stack hidden">
+      <label>Full name<input id="signupName"></label>
+      <label>Username<input id="signupUsername" autocapitalize="none"></label>
+      <label>Mobile<input id="signupMobile" inputmode="tel"></label>
+      <label>Email<input id="signupEmail" type="email"></label>
+      <label>Password<input id="signupPassword" type="password"></label>
+      <label>Confirm password<input id="signupConfirm" type="password"></label>
+      <button class="primary-btn" id="signupBtn">Create account</button>
+      <p class="switch-line">Already have an account? <button class="link-btn" id="showLogin">Login</button></p>
+    </div>
+  </div></div>
+
+
+  <div id="forgotModal" class="modal hidden"><div class="modal-card recovery-card">
+    <button class="modal-close" data-close="forgotModal">×</button>
+    <div class="modal-title"><div class="service-modal-icon">🔑</div><div><h3>Forgot password</h3><p>Choose a secure recovery method.</p></div></div>
+    <div class="recovery-tabs"><button class="recovery-tab active" data-recovery-tab="email">Send your email link</button><button class="recovery-tab" data-recovery-tab="manual">Manual verification</button></div>
+    <div id="recoveryEmailPane" class="recovery-pane">
+      <label>Email<input id="resetEmail" type="email" autocomplete="email" placeholder="you@example.com"></label>
+      <p class="recovery-note">Firebase will send a password reset link to this email.</p>
+      <button class="primary-btn" id="emailResetBtn">Send reset link</button>
+    </div>
+    <div id="recoveryManualPane" class="recovery-pane hidden">
+      <label>Email<input id="manualEmail" type="email" autocomplete="email" placeholder="you@example.com"></label>
+      <label>Mobile number<input id="manualMobile" inputmode="tel" autocomplete="tel" placeholder="10 digit mobile"></label>
+      <p class="recovery-note">Your email and mobile must exactly match your registered profile. After verification, the secure Firebase reset link is sent to the verified email.</p>
+      <button class="primary-btn" id="manualVerifyBtn">Verify details &amp; reset</button>
+    </div>
+  </div></div>
+
+  <div id="chatModal" class="modal hidden"><div class="modal-card chat-card">
+    <button class="modal-close" data-close="chatModal">×</button>
+    <div class="modal-title"><div class="service-modal-icon">💬</div><div><h3>Chat with Admin</h3><p>Send a message to Print Portal admin.</p></div></div>
+    <div class="chat-toolbar"><button class="secondary-btn" id="newChatBtn">＋ New Service Chat</button><button class="tiny-btn" id="closeChatBtn">Close chat</button></div><div id="chatTopic" class="chat-topic">General support</div><div id="chatMessages" class="chat-messages"></div><div class="chat-compose"><textarea id="chatInput" rows="2" placeholder="Type your message..."></textarea><button class="primary-btn" id="sendChatBtn">Send</button></div>
+  </div></div>
+
+  <div id="profileModal" class="modal hidden"><div class="modal-card">
+    <button class="modal-close" data-close="profileModal">×</button>
+    <div class="profile-head"><div class="big-avatar" id="profileAvatar">G</div><div><h3 id="profileName">Guest</h3><p id="profileUsername">@guest</p></div></div>
+    <div id="profileFields" class="profile-fields"></div><button class="primary-btn full" id="profileAddMoneyBtn">＋ Add Money to Wallet</button><div class="profile-menu-grid"><button class="profile-menu-btn" id="myRequestsBtn">📋 My Requests</button><button class="profile-menu-btn" id="transactionsBtn">₹ Transactions</button><button class="profile-menu-btn" id="supportBtn">💬 Support</button><button class="profile-menu-btn" id="profileSettingsBtn">⚙ Settings</button></div><div class="modal-actions"><button class="secondary-btn" id="closeProfileBtn">Close</button><button class="danger-btn" id="logoutBtn">Logout</button></div>
+  </div></div>
+
+
+  <div id="walletModal" class="modal hidden"><div class="modal-card wallet-modal"><button class="modal-close" data-close="walletModal">×</button><div class="modal-title"><div class="service-modal-icon">₹</div><div><h3>My Wallet</h3><p>Available balance: <b id="walletModalBalance">₹0</b></p></div></div><label class="wallet-form-label">Amount<input id="walletAmount" class="wallet-input" type="number" min="1" max="100000" step="1" inputmode="decimal" placeholder="Enter amount"></label><div id="walletQr" class="qr-box"></div><p id="walletUpiText" class="recovery-note">Admin UPI will appear here.</p><label class="wallet-form-label">UTR / Transaction ID<input id="walletUtr" class="wallet-input" maxlength="50" autocomplete="off" placeholder="Enter UTR after payment"></label><div class="modal-actions"><button class="secondary-btn" data-close="walletModal">Close</button><button class="primary-btn" id="submitWalletRequestBtn">Submit Money Request</button></div></div></div>
+  <div id="accountBlockedModal" class="modal hidden"><div class="modal-card wallet-modal"><div class="lock-big">🔒</div><h3>You is deactivated by administrator</h3><p>Your account is currently deactivated. Pay the activation fee to activate your account.</p><div class="fee-box">Activation fee: <b id="accountActivationFee">₹0</b></div><div class="modal-actions"><button class="primary-btn" id="activateAccountBtn">Activate your account</button></div></div></div>
+  <div id="activationPayModal" class="modal hidden"><div class="modal-card wallet-modal"><button class="modal-close" data-close="activationPayModal">×</button><div class="modal-title"><div class="service-modal-icon">🔓</div><div><h3 id="activationPayTitle">Activate service</h3><p id="activationPayDesc"></p></div></div><div class="pay-choice-grid"><button class="pay-choice" id="payActivationWallet">💰<b>Pay by Wallet</b><small>Use available balance</small></button><button class="pay-choice" id="payActivationUpi">📲<b>Pay by UPI</b><small>Generate QR & submit UTR</small></button></div><div id="serviceActivationQrPane" class="hidden"><div id="serviceActivationQr" class="qr-box"></div><p id="serviceActivationUpiText" class="recovery-note"></p><label>UTR / Transaction ID<input id="serviceActivationUtr"></label><button class="primary-btn full" id="submitServiceActivationBtn">Submit UPI Request</button></div></div></div>
+  <div id="menuModal" class="modal hidden"><div class="modal-card menu-card">
+    <button class="modal-close" data-close="menuModal">×</button>
+    <div class="modal-title"><div class="service-modal-icon">☰</div><div><h3>Menu</h3><p>All account and portal options.</p></div></div>
+    <div class="main-menu-grid">
+      <button class="profile-menu-btn" id="menuProfileBtn">◉ Profile</button>
+      <button class="profile-menu-btn" id="menuChatBtn">💬 Chat with Admin</button>
+      <button class="profile-menu-btn" id="menuServicesBtn">▦ All Services</button>
+      <button class="profile-menu-btn" id="menuJobsBtn">◷ Recent Jobs</button>
+      <button class="profile-menu-btn" id="menuRequestsBtn">📋 My Requests</button>
+      <button class="profile-menu-btn" id="menuTransactionsBtn">₹ Transactions</button>
+      <button class="profile-menu-btn" id="menuSupportBtn">💬 Support</button>
+      <button class="profile-menu-btn" id="menuSettingsBtn">⚙ Settings</button>
+      <button class="profile-menu-btn" id="menuToolsBtn">⚙ Quick Tools</button>
+    </div>
+  </div></div>
+
+  <div id="notificationModal" class="modal hidden"><div class="modal-card large"><button class="modal-close" data-close="notificationModal">×</button><div class="modal-title"><div class="service-modal-icon">♢</div><div><h3>Notifications</h3><p>Your latest account and request updates.</p></div></div><div class="modal-actions"><button class="secondary-btn" id="markAllReadBtn">Mark as read</button></div><div id="notificationList" class="request-list"></div></div></div>
+  <div id="requestsModal" class="modal hidden"><div class="modal-card large"><button class="modal-close" data-close="requestsModal">×</button><div class="modal-title"><div class="service-modal-icon">📋</div><div><h3>My Requests</h3><p>Latest requests appear first.</p></div></div><div id="myRequestList" class="request-list"></div></div></div>
+  <div id="transactionsModal" class="modal hidden"><div class="modal-card large"><button class="modal-close" data-close="transactionsModal">×</button><div class="modal-title"><div class="service-modal-icon">₹</div><div><h3>Transactions</h3><p>Approved, pending and failed wallet activity.</p></div></div><div id="transactionList" class="request-list"></div></div></div>
+  <div id="profileSettingsModal" class="modal hidden"><div class="modal-card"><button class="modal-close" data-close="profileSettingsModal">×</button><h3>Profile Settings</h3><div id="profileSettingsBody" class="settings-list"></div><div class="modal-actions"><button class="secondary-btn" data-close="profileSettingsModal">Close</button></div></div></div>
+  <div id="servicePickerModal" class="modal hidden"><div class="modal-card large"><button class="modal-close" data-close="servicePickerModal">×</button><div class="modal-title"><div class="service-modal-icon">＋</div><div><h3>Start a Service Chat</h3><p>Select the service you need help with.</p></div></div><div id="servicePickerList" class="service-picker-list"></div></div></div>
+
+  <div id="personChargeModal" class="modal hidden"><div class="modal-card small-modal person-charge-modal">
+    <button class="modal-close" data-close="personChargeModal">×</button>
+    <div class="modal-title"><div class="service-modal-icon">₹</div><div><h3>Add More Person</h3><p id="personChargeServiceText">One person will be added.</p></div></div>
+    <div class="person-charge-box"><span>This person charge</span><b id="personChargeAmount">₹0</b></div>
+    <p class="recovery-note">OK दबाने पर ऊपर दिखाया गया शुल्क आपके Wallet से कटेगा। इसके बाद ही file चुनने का option खुलेगा।</p>
+    <div class="modal-actions"><button class="secondary-btn" id="personChargeCancelBtn">Cancel</button><button class="primary-btn" id="personChargeConfirmBtn">OK, Continue</button></div>
+  </div></div>
+
+  <div id="serviceModal" class="modal hidden"><div class="modal-card large">
+    <button class="modal-close" data-close="serviceModal">×</button>
+    <div class="modal-title"><div class="service-modal-icon" id="serviceModalIcon">▣</div><div><h3 id="serviceModalTitle">Service</h3><p id="serviceModalDesc"></p></div></div>
+    <div id="serviceGate" class="gate hidden"></div>
+    <div id="serviceWorkspace" class="workspace hidden">
+      <div class="stepper" id="stepper"><span class="active">1 Upload</span><span>2 Crop</span><span>3 Preview</span><span>4 Final</span></div>
+      <div id="stepUpload" class="step-panel"><div id="personCards" class="person-stack"></div><button class="add-more-btn" id="addPersonBtn">＋ Add More Card</button><div class="step-actions"><button class="secondary-btn" id="cancelServiceBtn">Cancel</button><button class="primary-btn" id="toPreviewBtn">Continue</button></div></div>
+      <div id="stepPreview" class="step-panel hidden"><div class="preview-toolbar"><button class="secondary-btn" id="previewBackBtn">← Back</button><label class="switch-label">Cutting marks <input type="checkbox" id="cutMarks"></label></div><div id="a4Preview" class="a4-preview"></div><div class="step-actions"><button class="secondary-btn" id="previewDownloadBtn">Download</button><button class="primary-btn" id="previewPrintBtn">Print</button></div></div>
+    </div>
+  </div></div>
+
+  <div id="cropModal" class="modal hidden"><div class="modal-card crop-card">
+    <button class="modal-close" data-close="cropModal">×</button>
+    <div class="crop-head"><div><h3 id="cropTitle">Crop</h3><p id="cropHint">Drag image • pinch/scroll to zoom • use 8 handles</p></div><div class="crop-ratio"><select id="cropMode"><option value="free">Free crop</option><option value="passport">Passport 33:45</option><option value="pvc">PVC 85.6:54</option></select></div></div>
+    <div id="cropStage" class="crop-stage"><canvas id="cropCanvas"></canvas><div id="cropBox" class="crop-box"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><button type="button" id="cropFullscreenBtn" class="crop-fullscreen-btn" aria-label="Fullscreen">⛶</button><button type="button" id="cropFullscreenAdd" class="crop-fullscreen-add hidden">✓ Add</button></div>
+    <div class="crop-controls"><button id="zoomOut">−</button><span id="zoomValue">100%</span><button id="zoomIn">＋</button><label class="rotate-control">Rotate <input id="rotateSlider" type="range" min="-180" max="180" value="0"><span id="rotateValue">0°</span></label><button id="rotateLeft">↶</button><button id="rotateRight">↷</button><button id="cropReset">Reset</button></div>
+    <div class="step-actions"><button class="secondary-btn" id="cropCancel">Cancel</button><button class="primary-btn" id="cropApply">Add / Apply Crop</button></div>
+  </div></div>
+
+  <div id="toolModal" class="modal hidden"><div class="modal-card large">
+    <button class="modal-close" data-close="toolModal">×</button>
+    <div class="modal-title"><div class="service-modal-icon">⚙</div><div><h3 id="toolTitle">Quick tool</h3><p id="toolDesc"></p></div></div>
+    <div id="toolBody"></div>
+  </div></div>
+
+  <div id="sectionFullModal" class="modal hidden section-full-modal"><div class="section-full-card">
+    <div class="section-full-head"><div><span class="eyebrow" id="sectionFullEyebrow">SERVICES</span><h3 id="sectionFullTitle">All services</h3><p id="sectionFullDesc"></p></div><button class="modal-close" data-close="sectionFullModal">×</button></div>
+    <div id="sectionFullBody" class="section-full-body"></div>
+  </div></div>
+
+  <div id="passwordModal" class="modal hidden"><div class="modal-card small-modal">
+    <div class="modal-title"><div class="service-modal-icon">🔒</div><div><h3>Password protected PDF</h3><p>Enter the PDF password to continue.</p></div></div>
+    <label>Password<input id="pdfPassword" type="password" autocomplete="off"></label>
+    <div id="passwordError" class="error-text"></div>
+    <div class="modal-actions"><button class="secondary-btn" id="passwordCancel">Cancel</button><button class="primary-btn" id="passwordSubmit">Unlock PDF</button></div>
+  </div></div>
+
+  <div id="toastHost" class="toast-host"></div>
+  <input id="hiddenFileInput" type="file" class="hidden" accept="image/jpeg,image/png,image/webp,application/pdf">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script><script type="module" src="user.js"></script>
+</body>
+</html>
