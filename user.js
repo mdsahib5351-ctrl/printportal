@@ -26,8 +26,9 @@ function bindUI(){
  $("#chatBtn")?.addEventListener("click",()=>window.openUserChatV5?.());$("#chatInput")?.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();window.sendUserChatV5?.()}});$("#logoutBtn")?.addEventListener("click",logoutUser);
  $("#closeProfileBtn")?.addEventListener("click",()=>closeModal("profileModal"));$("#bottomProfile")?.addEventListener("click",openProfile);$("#bottomJobs")?.addEventListener("click",()=>$(".recent-section")?.scrollIntoView({behavior:"smooth"}));$("#bottomServices")?.addEventListener("click",()=>openSectionFull("services"));$("#allServicesBtn")?.addEventListener("click",()=>openSectionFull("services"));$("#allToolsBtn")?.addEventListener("click",()=>openSectionFull("tools"));
  $$(".quick-card").forEach(b=>b.addEventListener("click",()=>openServiceByType(b.dataset.action)));$$(".tool-card").forEach(b=>b.addEventListener("click",()=>openTool(b.dataset.tool)));
- $("#addPersonBtn")?.addEventListener("click",()=>{});$("#toPreviewBtn")?.addEventListener("click",prepareFinalPreview);$("#previewBackBtn")?.addEventListener("click",()=>setStep("upload"));$("#previewDownloadBtn")?.addEventListener("click",showExportChoices);$("#previewPrintBtn")?.addEventListener("click",printCurrentLayout);$("#cutMarks")?.addEventListener("change",renderA4Preview);$("#cancelServiceBtn")?.addEventListener("click",()=>closeModal("serviceModal"));
- $("#cropApply")?.addEventListener("click",applyCrop);$("#cropFullscreenAdd")?.addEventListener("click",applyCrop);$("#cropCancel")?.addEventListener("click",()=>{closeCropModal();closeModal("cropModal")});$("#cropFullscreenBtn")?.addEventListener("click",toggleCropFullscreen);$("#cropReset")?.addEventListener("click",resetCrop);$("#zoomIn")?.addEventListener("click",()=>setCropZoom((state.crop?.zoom||1)+.15));$("#zoomOut")?.addEventListener("click",()=>setCropZoom((state.crop?.zoom||1)-.15));$("#rotateLeft")?.addEventListener("click",()=>setCropRotation((state.crop?.rotation||0)-5));$("#rotateRight")?.addEventListener("click",()=>setCropRotation((state.crop?.rotation||0)+5));$("#rotateSlider")?.addEventListener("input",e=>setCropRotation(+e.target.value));$("#cropMode")?.addEventListener("change",syncCropRatio);
+ $("#addPersonBtn")?.addEventListener("click",()=>{});$("#toPreviewBtn")?.addEventListener("click",prepareFinalPreview);$("#previewBackBtn")?.addEventListener("click",()=>setStep("upload"));$("#previewDownloadBtn")?.addEventListener("click",showExportChoices);$("#previewPrintBtn")?.addEventListener("click",printCurrentLayout);$("#cutMarks")?.addEventListener("change",renderA4Preview);
+$("#foldingLine")?.addEventListener("change",renderA4Preview);$("#cancelServiceBtn")?.addEventListener("click",()=>closeModal("serviceModal"));
+ $("#cropApply")?.addEventListener("click",applyCrop);$("#cropFullscreenAdd")?.addEventListener("click",applyCrop);$("#cropCancel")?.addEventListener("click",()=>{closeCropModal();closeModal("cropModal")});$("#cropFullscreenBtn")?.addEventListener("click",toggleCropFullscreen);$("#cropFullscreenZoomOut")?.addEventListener("click",toggleCropFullscreen);$("#cropFullscreenPerspective")?.addEventListener("click",togglePerspectiveCrop);$("#cropPerspectiveBtn")?.addEventListener("click",togglePerspectiveCrop);$("#cropReset")?.addEventListener("click",resetCrop);$("#zoomIn")?.addEventListener("click",()=>setCropZoom((state.crop?.zoom||1)+.15));$("#zoomOut")?.addEventListener("click",()=>setCropZoom((state.crop?.zoom||1)-.15));$("#rotateLeft")?.addEventListener("click",()=>setCropRotation((state.crop?.rotation||0)-5));$("#rotateRight")?.addEventListener("click",()=>setCropRotation((state.crop?.rotation||0)+5));$("#rotateSlider")?.addEventListener("input",e=>setCropRotation(+e.target.value));$("#cropMode")?.addEventListener("change",syncCropRatio);
  $("#passwordCancel")?.addEventListener("click",()=>{state.passwordReject?.(Object.assign(Error("PDF operation cancelled"),{code:"PDF_CANCELLED"}));state.passwordReject=null;closeModal("passwordModal")});$("#passwordSubmit")?.addEventListener("click",()=>{const v=$("#pdfPassword")?.value||"";if(!v){$("#passwordError").textContent="Enter password";return}const r=state.passwordResolve;state.passwordResolve=null;state.passwordReject=null;closeModal("passwordModal");r?.(v)});
  $$(".modal-close").forEach(b=>b.addEventListener("click",()=>closeModal(b.dataset.close)));document.addEventListener("keydown",e=>{if(e.key==="Escape"){const cm=$("#cropModal");if(cm?.classList.contains("crop-fullscreen")){cm.classList.remove("crop-fullscreen");state.crop.boxW=null;state.crop.boxH=null;state.crop.boxX=null;state.crop.boxY=null;requestAnimationFrame(drawCropStage);return}$$('.modal:not(.hidden)').forEach(m=>closeModal(m.id))}});bindCropGestures();
 }
@@ -162,6 +163,267 @@ function newCropState(src,mode="free"){
     x:0,y:0,width:src.naturalWidth,height:src.naturalHeight,
     selectionLocked:false,manualBox:false};
 }
+function initPerspective(c){
+  if(c.perspectivePoints?.length===4)return;
+  // Start from the current normal-crop rectangle, so Perspective Crop begins
+  // exactly on the area the user has selected instead of the whole source.
+  const x=Number.isFinite(c.x)?c.x:0, y=Number.isFinite(c.y)?c.y:0;
+  const w=Math.max(1,Number(c.width)||c.source.naturalWidth), h=Math.max(1,Number(c.height)||c.source.naturalHeight);
+  c.perspectivePoints=[
+    {x,y}, {x:x+w,y}, {x:x+w,y:y+h}, {x,y:y+h}
+  ];
+}
+function sourceToViewPoint(c,p){return sourcePointToView.call(null,p.x,p.y)}
+function viewToSourcePoint(c,vx,vy){
+  const r=els.cropStage.getBoundingClientRect(),s=cropScale(),ang=-(c.rotation||0)*Math.PI/180,co=Math.cos(ang),si=Math.sin(ang);
+  const dx=(vx-(r.width/2+c.panX))/s,dy=(vy-(r.height/2+c.panY))/s;
+  return {
+    x:c.source.naturalWidth/2+dx*co-dy*si,
+    y:c.source.naturalHeight/2+dx*si+dy*co
+  };
+}
+function clampPerspectivePoint(c,p){
+  p.x=Math.max(0,Math.min(c.source.naturalWidth,p.x));p.y=Math.max(0,Math.min(c.source.naturalHeight,p.y));return p;
+}
+function setPerspectiveUI(on){
+  const c=state.crop;if(!c)return;
+  c.perspectiveMode=!!on;
+  if(on)initPerspective(c);
+  $("#cropBox")?.classList.toggle("perspective-hidden",!!on);
+  $("#perspectiveBox")?.classList.toggle("active",!!on);
+  $("#perspectiveOverlay")?.classList.toggle("active",!!on);
+  $("#cropPerspectiveBtn")?.classList.toggle("active",!!on);
+  $("#cropPerspectiveBtn")?.setAttribute("aria-pressed",String(!!on));
+  $("#cropFullscreenPerspective")?.classList.toggle("active",!!on);
+  $("#cropFullscreenPerspective")?.setAttribute("aria-pressed",String(!!on));
+  $("#cropHint")?.replaceChildren(document.createTextNode(on?"Drag the 4 corners • touch shows a clear zoom loupe • Apply to straighten":"Drag image • pinch/scroll to zoom • use 8 handles"));
+  drawCropStage();
+}
+function togglePerspectiveCrop(){if(!state.crop)return;setPerspectiveUI(!state.crop.perspectiveMode)}
+function drawPerspective(){
+  const c=state.crop,stage=els.cropStage,ov=$("#perspectiveOverlay"),poly=$("#perspectivePolygon"),box=$("#perspectiveBox");
+  if(!c||!stage||!ov||!poly||!box)return;
+  initPerspective(c);
+  const r=stage.getBoundingClientRect();ov.setAttribute("viewBox",`0 0 ${r.width} ${r.height}`);
+  const pts=c.perspectivePoints.map(p=>sourceToViewPoint(c,p));
+  poly.setAttribute("points",pts.map(p=>`${p.x},${p.y}`).join(" "));
+  [...box.querySelectorAll("i")].forEach((h,i)=>{h.style.left=`${pts[i].x}px`;h.style.top=`${pts[i].y}px`});
+}
+function updateLoupePosition(clientX,clientY){
+  const l=$("#cropLoupe"),stage=els.cropStage;if(!l||!stage)return;
+  const r=stage.getBoundingClientRect(),size=Math.min(170,Math.max(132,r.width*.30));
+  l.style.width=`${size}px`;l.style.height=`${size}px`;
+  let x=clientX-r.left,y=clientY-r.top,left=x<r.width/2?x+30:x-size-30,top=y<r.height/2?y+30:y-size-30;
+  left=Math.max(8,Math.min(r.width-size-8,left));top=Math.max(8,Math.min(r.height-size-8,top));
+  l.style.left=`${left}px`;l.style.top=`${top}px`;
+}
+function showCropLoupe(clientX,clientY){
+  const l=$("#cropLoupe"),can=$("#cropLoupeCanvas"),main=els.cropCanvas,stage=els.cropStage;if(!l||!can||!main||!stage)return;
+  updateLoupePosition(clientX,clientY);l.classList.add("visible");
+  const r=stage.getBoundingClientRect(),dpr=devicePixelRatio||1,size=Math.min(170,Math.max(132,r.width*.30)),zoom=2.5;
+  can.width=Math.round(size*dpr);can.height=Math.round(size*dpr);can.style.width=`${size}px`;can.style.height=`${size}px`;
+  const px=(clientX-r.left)*dpr,py=(clientY-r.top)*dpr,srcSize=size/zoom*dpr,ctx=can.getContext("2d");
+  ctx.clearRect(0,0,can.width,can.height);ctx.save();ctx.beginPath();ctx.arc(can.width/2,can.height/2,can.width/2,0,Math.PI*2);ctx.clip();
+  ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
+  ctx.drawImage(main,px-srcSize/2,py-srcSize/2,srcSize,srcSize,0,0,can.width,can.height);ctx.restore();
+}
+function hideCropLoupe(){const l=$("#cropLoupe");if(l)l.classList.remove("visible")}
+async function renderPerspectiveCrop(c){
+  initPerspective(c);
+
+  const p=c.perspectivePoints;
+  if(!Array.isArray(p)||p.length!==4){
+    throw new Error("Set all 4 perspective corners first");
+  }
+
+  // The four handles are SOURCE-IMAGE coordinates:
+  // 0 = top-left, 1 = top-right, 2 = bottom-right, 3 = bottom-left.
+  const tl=clampPerspectivePoint(c,{x:Number(p[0].x),y:Number(p[0].y)});
+  const tr=clampPerspectivePoint(c,{x:Number(p[1].x),y:Number(p[1].y)});
+  const br=clampPerspectivePoint(c,{x:Number(p[2].x),y:Number(p[2].y)});
+  const bl=clampPerspectivePoint(c,{x:Number(p[3].x),y:Number(p[3].y)});
+
+  // Keep the selected quadrilateral's real aspect ratio.
+  const distance=(a,b)=>Math.hypot(b.x-a.x,b.y-a.y);
+  const top=distance(tl,tr);
+  const bottom=distance(bl,br);
+  const left=distance(tl,bl);
+  const right=distance(tr,br);
+
+  const outW0=Math.max(2,Math.round((top+bottom)/2));
+  const outH0=Math.max(2,Math.round((left+right)/2));
+
+  // Avoid creating an unnecessarily huge canvas while preserving the
+  // selected document proportions.
+  const maxDim=2600;
+  const fit=Math.min(1,maxDim/Math.max(outW0,outH0));
+  const outW=Math.max(2,Math.round(outW0*fit));
+  const outH=Math.max(2,Math.round(outH0*fit));
+
+  /*
+   * Solve the INVERSE homography directly:
+   *
+   *   sourceX = (a*u + b*v + c) / (g*u + h*v + 1)
+   *   sourceY = (d*u + e*v + f) / (g*u + h*v + 1)
+   *
+   * where (u,v) is a pixel in the final straight rectangle and the four
+   * destination corners correspond exactly to TL/TR/BR/BL in the source.
+   *
+   * This avoids the old scale-dependent formula and makes every selected
+   * corner land exactly on the corresponding output corner.
+   */
+  const dst=[
+    {x:0,    y:0},
+    {x:outW, y:0},
+    {x:outW, y:outH},
+    {x:0,    y:outH}
+  ];
+  const src=[tl,tr,br,bl];
+
+  const A=[];
+  const B=[];
+
+  for(let i=0;i<4;i++){
+    const u=dst[i].x;
+    const v=dst[i].y;
+    const x=src[i].x;
+    const y=src[i].y;
+
+    // u*a + v*b + c - x*u*g - x*v*h = x
+    A.push([u,v,1,0,0,0,-x*u,-x*v]);
+    B.push(x);
+
+    // u*d + v*e + f - y*u*g - y*v*h = y
+    A.push([0,0,0,u,v,1,-y*u,-y*v]);
+    B.push(y);
+  }
+
+  // Gaussian elimination with partial pivoting.
+  function solve8(M,Y){
+    const n=8;
+    const m=M.map((row,i)=>row.slice().concat(Y[i]));
+
+    for(let col=0;col<n;col++){
+      let pivot=col;
+      let best=Math.abs(m[col][col]);
+
+      for(let row=col+1;row<n;row++){
+        const value=Math.abs(m[row][col]);
+        if(value>best){
+          best=value;
+          pivot=row;
+        }
+      }
+
+      if(best<1e-12){
+        throw new Error("Invalid perspective selection");
+      }
+
+      if(pivot!==col){
+        const tmp=m[col];
+        m[col]=m[pivot];
+        m[pivot]=tmp;
+      }
+
+      const pv=m[col][col];
+      for(let j=col;j<=n;j++)m[col][j]/=pv;
+
+      for(let row=0;row<n;row++){
+        if(row===col)continue;
+        const f=m[row][col];
+        if(Math.abs(f)<1e-15)continue;
+        for(let j=col;j<=n;j++)m[row][j]-=f*m[col][j];
+      }
+    }
+
+    return m.map(row=>row[n]);
+  }
+
+  const H=solve8(A,B);
+  const [ha,hb,hc,hd,he,hf,hg,hh]=H;
+
+  const srcW=c.source.naturalWidth;
+  const srcH=c.source.naturalHeight;
+
+  const srcCanvas=document.createElement("canvas");
+  srcCanvas.width=srcW;
+  srcCanvas.height=srcH;
+
+  const sc=srcCanvas.getContext("2d",{willReadFrequently:true});
+  sc.imageSmoothingEnabled=true;
+  sc.imageSmoothingQuality="high";
+  sc.drawImage(c.source,0,0,srcW,srcH);
+
+  const sd=sc.getImageData(0,0,srcW,srcH).data;
+
+  const outCanvas=document.createElement("canvas");
+  outCanvas.width=outW;
+  outCanvas.height=outH;
+
+  const out=outCanvas.getContext("2d",{willReadFrequently:false});
+  const img=out.createImageData(outW,outH);
+  const od=img.data;
+
+  // Inverse-map every destination pixel into the original image.
+  for(let y=0;y<outH;y++){
+    for(let x=0;x<outW;x++){
+      const den=hg*x+hh*y+1;
+      const oi=(y*outW+x)*4;
+
+      if(Math.abs(den)<1e-12){
+        od[oi+3]=0;
+        continue;
+      }
+
+      const sx=(ha*x+hb*y+hc)/den;
+      const sy=(hd*x+he*y+hf)/den;
+
+      // Outside source image: transparent rather than pulling edge pixels.
+      if(sx<0||sy<0||sx>srcW-1||sy>srcH-1){
+        od[oi]=255;
+        od[oi+1]=255;
+        od[oi+2]=255;
+        od[oi+3]=0;
+        continue;
+      }
+
+      // Bilinear interpolation for a clean, camera-scan-like result.
+      const x0=Math.floor(sx);
+      const y0=Math.floor(sy);
+      const x1=Math.min(srcW-1,x0+1);
+      const y1=Math.min(srcH-1,y0+1);
+      const fx=sx-x0;
+      const fy=sy-y0;
+
+      const i00=(y0*srcW+x0)*4;
+      const i10=(y0*srcW+x1)*4;
+      const i01=(y1*srcW+x0)*4;
+      const i11=(y1*srcW+x1)*4;
+
+      const w00=(1-fx)*(1-fy);
+      const w10=fx*(1-fy);
+      const w01=(1-fx)*fy;
+      const w11=fx*fy;
+
+      for(let ch=0;ch<4;ch++){
+        od[oi+ch]=
+          sd[i00+ch]*w00+
+          sd[i10+ch]*w10+
+          sd[i01+ch]*w01+
+          sd[i11+ch]*w11;
+      }
+    }
+  }
+
+  out.putImageData(img,0,0);
+
+  const url=outCanvas.toDataURL("image/png");
+  return {
+    url,
+    image:await loadImage(url)
+  };
+}
+
 function openCrop(pid,side){
   const p=state.workflow?.persons.find(x=>x.id===pid);if(!p?.[side]?.image)return;
   state.cropTarget={personId:pid,side};
@@ -172,11 +434,11 @@ function openCrop(pid,side){
   state.crop.mode=mode;
   $("#rotateSlider").value=state.crop.rotation||0;
   $("#rotateValue").textContent=`${Math.round(state.crop.rotation||0)}°`;
-  openModal("cropModal");requestAnimationFrame(()=>{initCropBox();drawCropStage()});
+  openModal("cropModal");requestAnimationFrame(()=>{initCropBox();setPerspectiveUI(!!state.crop.perspectiveMode);drawCropStage()});
 }
 function restoreCrop(s,src,mode="free"){
   const c={...newCropState(src,mode),x:Number(s?.x)||0,y:Number(s?.y)||0,width:Number(s?.width)||src.naturalWidth,height:Number(s?.height)||src.naturalHeight,zoom:Number(s?.zoom)||1,panX:Number(s?.panX)||0,panY:Number(s?.panY)||0,rotation:Number(s?.rotation)||0,boxNorm:s?.boxNorm||null};
-  c.selectionLocked=true;c.manualBox=false;c.boxX=c.boxY=c.boxW=c.boxH=null;return c;
+  c.selectionLocked=true;c.manualBox=false;c.boxX=c.boxY=c.boxW=c.boxH=null;c.perspectiveMode=!!s?.perspectiveMode;c.perspectivePoints=Array.isArray(s?.perspectivePoints)?s.perspectivePoints.map(p=>({x:Number(p.x),y:Number(p.y)})):null;return c;
 }
 function initCropBox(){
   const c=state.crop,stage=els.cropStage;if(!c||!stage)return;
@@ -256,94 +518,47 @@ function drawCropStage(){
   const s=cropScale();ctx.save();ctx.translate(r.width/2+c.panX,r.height/2+c.panY);ctx.rotate((c.rotation||0)*Math.PI/180);ctx.drawImage(c.source,-c.source.naturalWidth*s/2,-c.source.naturalHeight*s/2,c.source.naturalWidth*s,c.source.naturalHeight*s);ctx.restore();
   els.cropBox.style.left=`${c.boxX}px`;els.cropBox.style.top=`${c.boxY}px`;els.cropBox.style.width=`${c.boxW}px`;els.cropBox.style.height=`${c.boxH}px`;els.cropBox.style.transform="none";
   $("#zoomValue").textContent=`${Math.round(c.zoom*100)}%`;
+  drawPerspective();
 }
 function markCropManual(){if(state.crop){state.crop.manualBox=true;state.crop.selectionLocked=false}}
 function bindCropGestures(){
   const stage=els.cropStage,box=els.cropBox;if(!stage||!box)return;
-  const pointers=new Map();let mode=null,start=null,lastMid=null,lastDist=0;
-  const handles=[...box.querySelectorAll("i")];
+  const pointers=new Map();let mode=null,start=null,lastMid=null,lastDist=0,activePerspectiveHandle=-1;
+  const handles=[...box.querySelectorAll("i")],pHandles=[...($("#perspectiveBox")?.querySelectorAll("i")||[])];
   stage.addEventListener("pointerdown",e=>{
     if(!state.crop)return;e.preventDefault();pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});stage.setPointerCapture?.(e.pointerId);
-    if(pointers.size===2){mode="pinch";const a=[...pointers.values()][0],b=[...pointers.values()][1];lastMid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};lastDist=Math.hypot(a.x-b.x,a.y-b.y);return}
-    const h=handles.indexOf(e.target.closest("i"));
+    if(pointers.size===2){hideCropLoupe();mode="pinch";const a=[...pointers.values()][0],b=[...pointers.values()][1];lastMid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};lastDist=Math.hypot(a.x-b.x,a.y-b.y);return}
+    if(state.crop.perspectiveMode){
+      const ph=pHandles.indexOf(e.target.closest("#perspectiveBox i"));
+      if(ph>=0){activePerspectiveHandle=ph;mode="perspective";showCropLoupe(e.clientX,e.clientY);return}
+    }
+    hideCropLoupe();
+    const h=handles.indexOf(e.target.closest("#cropBox i"));
     if(h>=0){markCropManual();mode="resize";start={handle:h,x:e.clientX,y:e.clientY,box:{x:state.crop.boxX,y:state.crop.boxY,w:state.crop.boxW,h:state.crop.boxH}};return}
-    const inside=!!e.target.closest("#cropBox");
-    mode=inside?"box":"both";start={x:e.clientX,y:e.clientY,box:{x:state.crop.boxX,y:state.crop.boxY,w:state.crop.boxW,h:state.crop.boxH},panX:state.crop.panX,panY:state.crop.panY};
+    const inside=!!e.target.closest("#cropBox");mode=inside?"box":"both";start={x:e.clientX,y:e.clientY,box:{x:state.crop.boxX,y:state.crop.boxY,w:state.crop.boxW,h:state.crop.boxH},panX:state.crop.panX,panY:state.crop.panY};
   });
   stage.addEventListener("pointermove",e=>{
     if(!state.crop||!pointers.has(e.pointerId))return;e.preventDefault();pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});const c=state.crop,r=stage.getBoundingClientRect();
-    if(mode==="pinch"&&pointers.size>=2){
-      const [a,b]=[...pointers.values()],mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2},dist=Math.hypot(a.x-b.x,a.y-b.y);
-      if(lastDist){const factor=Math.max(.25,Math.min(4,dist/lastDist));c.zoom=Math.max(.5,Math.min(5,(c.zoom||1)*factor));const ddx=mid.x-lastMid.x,ddy=mid.y-lastMid.y;c.panX+=ddx;c.panY+=ddy;drawCropStage()}
-      lastDist=dist;lastMid=mid;return;
+    if(mode==="pinch"&&pointers.size>=2){const [a,b]=[...pointers.values()],mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2},dist=Math.hypot(a.x-b.x,a.y-b.y);if(lastDist){const factor=Math.max(.25,Math.min(4,dist/lastDist));c.zoom=Math.max(.5,Math.min(5,(c.zoom||1)*factor));c.panX+=mid.x-lastMid.x;c.panY+=mid.y-lastMid.y;drawCropStage()}lastDist=dist;lastMid=mid;return}
+    if(!start&&mode!=="perspective")return;const dx=e.clientX-(start?.x||e.clientX),dy=e.clientY-(start?.y||e.clientY);
+    if(mode==="perspective"){
+      showCropLoupe(e.clientX,e.clientY);
+      const p=clampPerspectivePoint(c,viewToSourcePoint(c,e.clientX-r.left,e.clientY-r.top));c.perspectivePoints[activePerspectiveHandle]=p;drawCropStage();return;
     }
-    if(!start)return;const dx=e.clientX-start.x,dy=e.clientY-start.y;
-    if(mode==="both"){
-      /* Linked movement: image and source-locked crop travel together. No screen clamp. */
-      c.panX=start.panX+dx;c.panY=start.panY+dy;drawCropStage();return;
-    }
-    if(mode==="box"){
-      markCropManual();c.boxX=start.box.x+dx;c.boxY=start.box.y+dy;
-      /* Manual box movement changes the source selection, but box may never leave the image. */
-      const im=getImageRect();
-      const minX=im.left,maxX=im.right-c.boxW,minY=im.top,maxY=im.bottom-c.boxH;
-      if(minX<=maxX)c.boxX=Math.max(minX,Math.min(maxX,c.boxX));
-      if(minY<=maxY)c.boxY=Math.max(minY,Math.min(maxY,c.boxY));
-      syncSourceCropFromView();drawCropStage();return;
-    }
-    if(mode==="resize"){
-      markCropManual();
-      const h=start.handle,b=start.box,min=40;
-      // Each handle owns only its adjacent edge(s).  The opposite edge stays
-      // anchored.  Never rebuild all four edges from a ratio while dragging:
-      // that was the reason a single side could appear to resize all sides.
-      let L=b.x,T=b.y,R=b.x+b.w,B=b.y+b.h;
-      const left=[0,7,6].includes(h), right=[2,3,4].includes(h);
-      const top=[0,1,2].includes(h), bottom=[4,5,6].includes(h);
-      if(left)  L=b.x+dx;
-      if(right) R=b.x+b.w+dx;
-      if(top)   T=b.y+dy;
-      if(bottom)B=b.y+b.h+dy;
-
-      // Minimum size: only the dragged edge is corrected; the anchored edge
-      // never moves because of the minimum-size guard.
-      if(left  && R-L<min) L=R-min;
-      if(right && R-L<min) R=L+min;
-      if(top   && B-T<min) T=B-min;
-      if(bottom&& B-T<min) B=T+min;
-
-      // Keep the active edge inside the IMAGE.  Do not clamp to the screen and
-      // do not move an unrelated edge.  This also works when the image itself
-      // is partly/mostly outside the viewport.
-      const im=getImageRect();
-      if(left  && L<im.left) L=im.left;
-      if(right && R>im.right) R=im.right;
-      if(top   && T<im.top) T=im.top;
-      if(bottom&& B>im.bottom) B=im.bottom;
-
-      // Re-apply minimum only if the image is large enough.  The fixed PVC
-      // ratio is intentionally NOT forced during a one-edge resize: a
-      // left/right/top/bottom handle must move only that side.  Corner handles
-      // still resize their two touched sides together.
-      if(left  && R-L<min && im.right-im.left>=min) L=Math.max(im.left,R-min);
-      if(right && R-L<min && im.right-im.left>=min) R=Math.min(im.right,L+min);
-      if(top   && B-T<min && im.bottom-im.top>=min) T=Math.max(im.top,B-min);
-      if(bottom&& B-T<min && im.bottom-im.top>=min) B=Math.min(im.bottom,T+min);
-
-      c.boxX=L;c.boxY=T;c.boxW=Math.max(1,R-L);c.boxH=Math.max(1,B-T);
-      syncSourceCropFromView();drawCropStage();
-    }
+    if(mode==="both"){c.panX=start.panX+dx;c.panY=start.panY+dy;drawCropStage();return}
+    if(mode==="box"){markCropManual();c.boxX=start.box.x+dx;c.boxY=start.box.y+dy;const im=getImageRect(),minX=im.left,maxX=im.right-c.boxW,minY=im.top,maxY=im.bottom-c.boxH;if(minX<=maxX)c.boxX=Math.max(minX,Math.min(maxX,c.boxX));if(minY<=maxY)c.boxY=Math.max(minY,Math.min(maxY,c.boxY));syncSourceCropFromView();drawCropStage();return}
+    if(mode==="resize"){markCropManual();const h=start.handle,b=start.box,min=40;let L=b.x,T=b.y,R=b.x+b.w,B=b.y+b.h;const left=[0,7,6].includes(h),right=[2,3,4].includes(h),top=[0,1,2].includes(h),bottom=[4,5,6].includes(h);if(left)L=b.x+dx;if(right)R=b.x+b.w+dx;if(top)T=b.y+dy;if(bottom)B=b.y+b.h+dy;if(left&&R-L<min)L=R-min;if(right&&R-L<min)R=L+min;if(top&&B-T<min)T=B-min;if(bottom&&B-T<min)B=T+min;const im=getImageRect();if(left&&L<im.left)L=im.left;if(right&&R>im.right)R=im.right;if(top&&T<im.top)T=im.top;if(bottom&&B>im.bottom)B=im.bottom;if(left&&R-L<min&&im.right-im.left>=min)L=Math.max(im.left,R-min);if(right&&R-L<min&&im.right-im.left>=min)R=Math.min(im.right,L+min);if(top&&B-T<min&&im.bottom-im.top>=min)T=Math.max(im.top,B-min);if(bottom&&B-T<min&&im.bottom-im.top>=min)B=Math.min(im.bottom,T+min);c.boxX=L;c.boxY=T;c.boxW=Math.max(1,R-L);c.boxH=Math.max(1,B-T);syncSourceCropFromView();drawCropStage()}
   });
-  const end=e=>{pointers.delete(e.pointerId);if(pointers.size<2){lastDist=0;lastMid=null}if(!pointers.size){mode=null;start=null}};
+  const end=e=>{pointers.delete(e.pointerId);if(pointers.size<2){lastDist=0;lastMid=null}if(!pointers.size){mode=null;start=null;activePerspectiveHandle=-1;setTimeout(hideCropLoupe,180)}};
   stage.addEventListener("pointerup",end);stage.addEventListener("pointercancel",end);stage.addEventListener("pointerleave",()=>{});
   stage.addEventListener("wheel",e=>{e.preventDefault();setCropZoom((state.crop?.zoom||1)+(e.deltaY<0?.1:-.1))},{passive:false});
 }
-function toggleCropFullscreen(){const m=$("#cropModal");if(!m||!state.crop)return;const entering=!m.classList.contains("crop-fullscreen");if(entering&&els.cropStage.clientWidth){state.crop.boxNorm={x:state.crop.boxX/els.cropStage.clientWidth,y:state.crop.boxY/els.cropStage.clientHeight,w:state.crop.boxW/els.cropStage.clientWidth,h:state.crop.boxH/els.cropStage.clientHeight}}m.classList.toggle("crop-fullscreen");state.crop.boxW=null;state.crop.boxH=null;state.crop.boxX=null;state.crop.boxY=null;requestAnimationFrame(drawCropStage)}
+function toggleCropFullscreen(){const m=$("#cropModal");if(!m||!state.crop)return;const entering=!m.classList.contains("crop-fullscreen");if(entering&&els.cropStage.clientWidth){state.crop.boxNorm={x:state.crop.boxX/els.cropStage.clientWidth,y:state.crop.boxY/els.cropStage.clientHeight,w:state.crop.boxW/els.cropStage.clientWidth,h:state.crop.boxH/els.cropStage.clientHeight}}m.classList.toggle("crop-fullscreen");state.crop.boxW=null;state.crop.boxH=null;state.crop.boxX=null;state.crop.boxY=null;requestAnimationFrame(()=>{drawCropStage();setPerspectiveUI(!!state.crop.perspectiveMode)})}
 function closeCropModal(){state.crop=null;state.cropTarget=null;$("#cropModal")?.classList.remove("crop-fullscreen")}
 async function applyCrop(){
   const c=state.crop,t=state.cropTarget;if(!c||!t)return;busy("cropApply",true);
-  try{syncSourceCropFromView();const out=await renderCrop(c),p=state.workflow.persons.find(x=>x.id===t.personId),old=p[t.side]?.url;
-    p[t.side]={...p[t.side],...out,cropped:true,auto:false,cropState:{x:c.x,y:c.y,width:c.width,height:c.height,zoom:c.zoom,panX:c.panX,panY:c.panY,rotation:c.rotation,boxNorm:{x:c.boxX/els.cropStage.clientWidth,y:c.boxY/els.cropStage.clientHeight,w:c.boxW/els.cropStage.clientWidth,h:c.boxH/els.cropStage.clientHeight}}};
+  try{if(c.perspectiveMode)initPerspective(c);else syncSourceCropFromView();const out=c.perspectiveMode?await renderPerspectiveCrop(c):await renderCrop(c),p=state.workflow.persons.find(x=>x.id===t.personId),old=p[t.side]?.url;
+    p[t.side]={...p[t.side],...out,cropped:true,auto:false,cropState:{x:c.x,y:c.y,width:c.width,height:c.height,zoom:c.zoom,panX:c.panX,panY:c.panY,rotation:c.rotation,perspectiveMode:!!c.perspectiveMode,perspectivePoints:c.perspectivePoints?.map(p=>({x:p.x,y:p.y}))||null,boxNorm:{x:(c.boxX||0)/els.cropStage.clientWidth,y:(c.boxY||0)/els.cropStage.clientHeight,w:(c.boxW||0)/els.cropStage.clientWidth,h:(c.boxH||0)/els.cropStage.clientHeight}}};
     if(old?.startsWith("blob:"))URL.revokeObjectURL(old);renderPersonCards();closeModal("cropModal");toast("Crop added")
   }catch(e){toast(e.message||"Crop failed","error")}finally{busy("cropApply",false)}
 }
@@ -394,11 +609,56 @@ function currentItems(){
   return a;
 }
 function getPaper(wf){const l=wf?.layoutSettings||{};const presets={a4:[210,297],a5:[148,210],letter:[215.9,279.4],legal:[215.9,355.6]};if(l.paper==="custom")return{width:Math.max(30,+l.width||210),height:Math.max(30,+l.height||297)};const [width,height]=presets[l.paper]||presets.a4;return{width,height}}
-function layoutPages(wf){if(wf.type==="passport")return passportPages(wf);const paper=getPaper(wf),pages=[[]],mx=8,my=8,cw=85.6,ch=54,gap=8,pairGap=8;let y=my;for(const p of wf.persons.filter(x=>x.front)){if(y+ch>paper.height-my){pages.push([]);y=my}pages.at(-1).push({src:p.front.url,type:"card",w:cw,h:ch,x:mx,y,person:pages.at(-1).length+1,side:"front"});if(p.back)pages.at(-1).push({src:p.back.url,type:"card",w:cw,h:ch,x:mx+cw+pairGap,y,person:pages.at(-1).length+1,side:"back"});y+=ch+gap}return pages.map(items=>items.map(it=>({...it}))).filter(page=>page.length)}
+function layoutPages(wf){
+  if(wf.type==="passport") return passportPages(wf);
+
+  const paper=getPaper(wf),pages=[[]],
+        mx=8,my=8,cw=85.6,ch=54,gap=8,pairGap=8;
+  let y=my;
+
+  for(const [personIndex,p] of wf.persons.filter(x=>x.front).entries()){
+    if(y+ch>paper.height-my){
+      pages.push([]);
+      y=my;
+    }
+
+    const personNo=personIndex+1;
+
+    pages.at(-1).push({
+      src:p.front.url,
+      type:"card",
+      w:cw,
+      h:ch,
+      x:mx,
+      y,
+      person:personNo,
+      side:"front"
+    });
+
+    if(p.back){
+      pages.at(-1).push({
+        src:p.back.url,
+        type:"card",
+        w:cw,
+        h:ch,
+        x:mx+cw+pairGap,
+        y,
+        person:personNo,
+        side:"back"
+      });
+    }
+
+    y+=ch+gap;
+  }
+
+  return pages
+    .map(items=>items.map(it=>({...it})))
+    .filter(page=>page.length);
+}
 function passportPages(wf){
   const paper=getPaper(wf),items=currentItems(),pages=[[]];
   let x=8,y=8,rowH=0,rowGap=0;
-  for(const it of items){
+  for(const [index,it] of items.entries()){
     const person=wf.persons.find(p=>p.id===it.personId)||wf.persons[0];
     const s=getPersonSettings(person);
     const gapX=Math.max(0,Number(s.gapX)||0),gapY=Math.max(0,Number(s.gapY)||0);
@@ -417,7 +677,26 @@ async function renderA4Preview(){
   bar.innerHTML=`${wf.type==="passport"?`<label class="person-select-label">Edit person <select id="finalPersonSelect">${wf.persons.map((p,i)=>`<option value="${p.id}">Person ${i+1}</option>`).join("")}</select></label><label>Photo size <input id="photoSizeSlider" type="range" min="25" max="200" step="1"><span id="photoSizeValue"></span></label><label>Horizontal gap <input id="gapXSlider" type="range" min="0" max="10" step="0.5"><span id="gapXValue"></span></label><label>Vertical gap <input id="gapYSlider" type="range" min="0" max="10" step="0.5"><span id="gapYValue"></span></label><label class="check-row">Black border <input id="photoBorder" type="checkbox"></label><label>Border thickness <input id="borderWidthSlider" type="range" min="0.1" max="3" step="0.1"><span id="borderWidthValue"></span></label><button id="applyPassportSettingsAll" type="button" class="btn primary apply-all-btn">Apply to All</button>`:""}<label>Paper <select id="paperSize"><option value="a4">A4</option><option value="a5">A5</option><option value="letter">Letter</option><option value="legal">Legal</option><option value="custom">Custom</option></select></label><label id="customPaperWrap" class="hidden">W <input id="customPaperW" type="number" min="30" max="500" step="1" value="${paper.width}"> H <input id="customPaperH" type="number" min="30" max="500" step="1" value="${paper.height}"></label>`;
   els.a4Preview.appendChild(bar);const ps=$("#paperSize");ps.value=wf.layoutSettings.paper;bindLayoutControls();
   if(wf.type==="passport"){bindPassportControls();renderPassportPagesOnly();return}
-  const pages=layoutPages(wf);for(const [pi,items] of pages.entries()){const lab=document.createElement("div");lab.className="page-label";lab.textContent=`${paper.width} × ${paper.height} mm • Page ${pi+1} • ${pages.length} total`;els.a4Preview.appendChild(lab);const page=document.createElement("div");page.className="a4-page preview-page";page.style.aspectRatio=`${paper.width}/${paper.height}`;page.style.setProperty("--paper-ratio",`${paper.width}/${paper.height}`);els.a4Preview.appendChild(page);for(const it of items){const d=document.createElement("div");d.className="a4-item";Object.assign(d.style,{left:`${it.x/paper.width*100}%`,top:`${it.y/paper.height*100}%`,width:`${it.w/paper.width*100}%`,height:`${it.h/paper.height*100}%`});if(it.border&&it.borderMm>0)d.style.border=`${it.borderMm}mm solid #111`;const im=new Image();im.src=it.src;d.appendChild(im);if($("#cutMarks")?.checked)d.classList.add("mark");page.appendChild(d)}}}
+  const pages=layoutPages(wf);
+  for(const [pi,items] of pages.entries()){
+    const lab=document.createElement("div");lab.className="page-label";lab.textContent=`${paper.width} × ${paper.height} mm • Page ${pi+1} • ${pages.length} total`;els.a4Preview.appendChild(lab);
+    const page=document.createElement("div");page.className="a4-page preview-page";page.style.aspectRatio=`${paper.width}/${paper.height}`;page.style.setProperty("--paper-ratio",`${paper.width}/${paper.height}`);els.a4Preview.appendChild(page);
+    for(const [index,it] of items.entries()){
+      const d=document.createElement("div");d.className="a4-item";Object.assign(d.style,{left:`${it.x/paper.width*100}%`,top:`${it.y/paper.height*100}%`,width:`${it.w/paper.width*100}%`,height:`${it.h/paper.height*100}%`});
+      if(it.border&&it.borderMm>0)d.style.border=`${it.borderMm}mm solid #111`;
+      const im=new Image();im.src=it.src;d.appendChild(im);if($("#cutMarks")?.checked)d.classList.add("mark");page.appendChild(d);
+      if($("#foldingLine")?.checked&&it.side==="front"){
+        const next=items[index+1];
+        if(next&&next.side==="back"&&next.person===it.person){
+          const centerX=(it.x+it.w+next.x)/2,top=Math.min(it.y,next.y),bottom=Math.max(it.y+it.h,next.y+next.h);
+          const line=document.createElement("div");line.className="folding-line";
+          line.style.left=`${centerX/paper.width*100}%`;line.style.top=`${top/paper.height*100}%`;line.style.height=`${(bottom-top)/paper.height*100}%`;
+          page.appendChild(line);
+        }
+      }
+    }
+  }
+}
 
 function bindLayoutControls(){
   const wf=state.workflow;
@@ -493,8 +772,50 @@ function openSectionFull(type){
 }
 
 function showExportChoices(){openTool("export")}
-async function exportCurrent(format){const wf=state.workflow;if(!wf)return;busy(`export-${format}`,true);try{const pages=layoutPages(wf),all=[];for(const items of pages){const arr=[];for(const it of items)arr.push({it,img:await loadImage(it.src)});all.push(arr)}if(format==="pdf"){const{jsPDF}=await import("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.es.min.js"),paper=getPaper(wf),pdf=new jsPDF({unit:"mm",format:[paper.width,paper.height],compress:true});all.forEach((items,pi)=>{if(pi)pdf.addPage();items.forEach(({it,img})=>{pdf.addImage(img.src,"PNG",it.x,it.y,it.w,it.h);if(it.border&&it.borderMm>0){pdf.setDrawColor(0,0,0);pdf.setLineWidth(it.borderMm);pdf.rect(it.x,it.y,it.w,it.h)}})});pdf.save(`print-portal-${Date.now()}.pdf`);await commitPendingUsageCharge();recordJob(wf.service.name,"PDF")}else{for(let pi=0;pi<all.length;pi++){const paper=getPaper(wf),c=document.createElement("canvas");c.width=2480;c.height=Math.max(1,Math.round(2480*paper.height/paper.width));const ctx=c.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,c.width,c.height);all[pi].forEach(({it,img})=>{const paper=getPaper(wf),x=it.x/paper.width*c.width,y=it.y/paper.height*c.height,w=it.w/paper.width*c.width,h=it.h/paper.height*c.height;ctx.drawImage(img,x,y,w,h);if(it.border&&it.borderMm>0){ctx.save();ctx.strokeStyle="#111";ctx.lineWidth=it.borderMm/210*c.width;ctx.strokeRect(x,y,w,h);ctx.restore()}});downloadData(c.toDataURL(format==="jpg"?"image/jpeg":"image/png",format==="jpg"?.95:1),`print-page-${pi+1}-${Date.now()}.${format}`)}await commitPendingUsageCharge();recordJob(wf.service.name,format)}closeModal("toolModal");toast(`${format.toUpperCase()} generated successfully`)}catch(e){if(state.pendingUsageCharges?.length)await refundPendingUsageCharge();toast(e.message||"Export failed","error")}finally{busy(`export-${format}`,false)}}
-async function printCurrentLayout(){const wf=state.workflow;if(!wf)return;const paper=getPaper(wf),out=[];try{for(const items of layoutPages(wf)){const c=document.createElement("canvas");c.width=2480;c.height=Math.round(2480*paper.height/paper.width);const ctx=c.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,c.width,c.height);for(const it of items){const im=await loadImage(it.src);ctx.drawImage(im,it.x/paper.width*c.width,it.y/paper.height*c.height,it.w/paper.width*c.width,it.h/paper.height*c.height)}out.push(c.toDataURL("image/png",1))}const w=window.open("","_blank");if(!w)throw Error("Browser blocked print window");w.document.write(`<html><head><title>Print Portal</title><style>@page{size:${paper.width}mm ${paper.height}mm;margin:0}html,body{margin:0}img{width:${paper.width}mm;height:${paper.height}mm;display:block;page-break-after:always}</style></head><body>${out.map(x=>`<img src="${x}">`).join("")}</body></html>`);w.document.close();w.onload=()=>{w.focus();w.print()};await commitPendingUsageCharge();recordJob(state.workflow.service.name,"PRINT")}catch(e){if(state.pendingUsageCharges?.length)await refundPendingUsageCharge();toast(e.message||"Print failed","error")}}
+function drawFoldingLineMm(ctx,front,back,paper,cw,ch){
+  if(!$("#foldingLine")?.checked||front?.side!=="front"||back?.side!=="back"||front.person!==back.person)return;
+  const centerX=((front.x+front.w+back.x)/2)/paper.width*cw;
+  const top=Math.min(front.y,back.y)/paper.height*ch;
+  const bottom=Math.max(front.y+front.h,back.y+back.h)/paper.height*ch;
+  ctx.save();ctx.strokeStyle="#555";ctx.lineWidth=Math.max(1,0.35/210*cw);ctx.setLineDash([Math.max(3,2/210*cw),Math.max(3,2/210*cw)]);ctx.beginPath();ctx.moveTo(centerX,top);ctx.lineTo(centerX,bottom);ctx.stroke();ctx.restore();
+}
+function drawFoldingLinePdf(pdf,front,back){
+  if(!$("#foldingLine")?.checked||front?.side!=="front"||back?.side!=="back"||front.person!==back.person)return;
+  const centerX=(front.x+front.w+back.x)/2,top=Math.min(front.y,back.y),bottom=Math.max(front.y+front.h,back.y+back.h);
+  pdf.setDrawColor(85,85,85);pdf.setLineWidth(0.35);pdf.setLineDashPattern([2,2],0);pdf.line(centerX,top,centerX,bottom);pdf.setLineDashPattern([],0);
+}
+async function exportCurrent(format){
+  const wf=state.workflow;if(!wf)return;busy(`export-${format}`,true);
+  try{
+    const pages=layoutPages(wf),all=[];for(const items of pages){const arr=[];for(const it of items)arr.push({it,img:await loadImage(it.src)});all.push(arr)}
+    const paper=getPaper(wf);
+    if(format==="pdf"){
+      const{jsPDF}=await import("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.es.min.js"),pdf=new jsPDF({unit:"mm",format:[paper.width,paper.height],compress:true});
+      all.forEach((items,pi)=>{if(pi)pdf.addPage();items.forEach(({it,img},idx)=>{pdf.addImage(img.src,"PNG",it.x,it.y,it.w,it.h);if(it.border&&it.borderMm>0){pdf.setDrawColor(0,0,0);pdf.setLineWidth(it.borderMm);pdf.rect(it.x,it.y,it.w,it.h)}if(it.side==="front"){const next=items[idx+1]?.it;if(next&&next.side==="back"&&next.person===it.person)drawFoldingLinePdf(pdf,it,next)}})});
+      pdf.save(`print-portal-${Date.now()}.pdf`);await commitPendingUsageCharge();recordJob(wf.service.name,"PDF");
+    }else{
+      for(let pi=0;pi<all.length;pi++){
+        const c=document.createElement("canvas");c.width=2480;c.height=Math.max(1,Math.round(2480*paper.height/paper.width));const ctx=c.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,c.width,c.height);
+        all[pi].forEach(({it,img},idx)=>{const x=it.x/paper.width*c.width,y=it.y/paper.height*c.height,w=it.w/paper.width*c.width,h=it.h/paper.height*c.height;ctx.drawImage(img,x,y,w,h);if(it.border&&it.borderMm>0){ctx.save();ctx.strokeStyle="#111";ctx.lineWidth=it.borderMm/210*c.width;ctx.strokeRect(x,y,w,h);ctx.restore()}if(it.side==="front"){const next=all[pi][idx+1]?.it;if(next&&next.side==="back"&&next.person===it.person)drawFoldingLineMm(ctx,it,next,paper,c.width,c.height)}});
+        downloadData(c.toDataURL(format==="jpg"?"image/jpeg":"image/png",format==="jpg"?.95:1),`print-page-${pi+1}-${Date.now()}.${format}`)
+      }
+      await commitPendingUsageCharge();recordJob(wf.service.name,format)
+    }
+    closeModal("toolModal");toast(`${format.toUpperCase()} generated successfully`)
+  }catch(e){if(state.pendingUsageCharges?.length)await refundPendingUsageCharge();toast(e.message||"Export failed","error")}finally{busy(`export-${format}`,false)}
+}
+async function printCurrentLayout(){
+  const wf=state.workflow;if(!wf)return;const paper=getPaper(wf),out=[];
+  try{
+    for(const items of layoutPages(wf)){
+      const c=document.createElement("canvas");c.width=2480;c.height=Math.round(2480*paper.height/paper.width);const ctx=c.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,c.width,c.height);
+      for(let i=0;i<items.length;i++){const it=items[i],im=await loadImage(it.src),x=it.x/paper.width*c.width,y=it.y/paper.height*c.height,w=it.w/paper.width*c.width,h=it.h/paper.height*c.height;ctx.drawImage(im,x,y,w,h);if(it.side==="front"){const next=items[i+1];if(next&&next.side==="back"&&next.person===it.person)drawFoldingLineMm(ctx,it,next,paper,c.width,c.height)}}
+      out.push(c.toDataURL("image/png",1))
+    }
+    const w=window.open("","_blank");if(!w)throw Error("Browser blocked print window");w.document.write(`<html><head><title>Print Portal</title><style>@page{size:${paper.width}mm ${paper.height}mm;margin:0}html,body{margin:0}img{width:${paper.width}mm;height:${paper.height}mm;display:block;page-break-after:always}</style></head><body>${out.map(x=>`<img src="${x}">`).join("")}</body></html>`);w.document.close();w.onload=()=>{w.focus();w.print()};await commitPendingUsageCharge();recordJob(state.workflow.service.name,"PRINT")
+  }catch(e){if(state.pendingUsageCharges?.length)await refundPendingUsageCharge();toast(e.message||"Print failed","error")}
+}
+
 async function loadRecentJobs(){if(!state.user){renderRecentJobs();return}try{const q=await getDocs(query(collection(db,"users",state.user.uid,"recentJobs"),orderBy("createdAt","desc"),limit(30)));const jobs=q.docs.map(d=>({id:d.id,...d.data(),createdAt:d.data().createdAt?.toMillis?.()||Date.now()}));localStorage.setItem(recentKey,JSON.stringify(jobs));renderRecentJobs()}catch{renderRecentJobs()}}
 async function recordJob(service,output){const job={id:id(),service,output,status:"completed",createdAt:Date.now()};if(state.user){try{await addDoc(collection(db,"users",state.user.uid,"recentJobs"),{...job,createdAt:serverTimestamp()});await loadRecentJobs();return}catch{}}let jobs=[];try{jobs=JSON.parse(localStorage.getItem(recentKey)||"[]")}catch{}jobs.unshift(job);localStorage.setItem(recentKey,JSON.stringify(jobs.slice(0,30)));renderRecentJobs()}
 function renderRecentJobs(){let jobs=[];try{jobs=JSON.parse(localStorage.getItem(recentKey)||"[]")}catch{}if(!jobs.length){els.recentJobs.innerHTML='<div class="empty-state"><span>◌</span><b>No recent jobs</b><small>Your completed print/export jobs will appear here.</small></div>';return}els.recentJobs.innerHTML="";jobs.slice(0,12).forEach(j=>{const d=document.createElement("div");d.className="job-row";d.innerHTML=`<span class="job-icon">✓</span><div><b></b><small></small></div><span class="status">Completed</span>`;$("b",d).textContent=j.service;$("small",d).textContent=`${new Date(j.createdAt).toLocaleString()} • ${j.output}`;els.recentJobs.appendChild(d)})}
