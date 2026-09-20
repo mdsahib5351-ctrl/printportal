@@ -152,3 +152,13 @@
 #a4Preview .range-nudge{width:32px;height:30px;border:1px solid #d5e2f5;border-radius:9px;background:#edf5ff;color:#075fd2;font-size:20px;font-weight:700;line-height:1}
 #a4Preview .range-nudge:active{transform:scale(.96);background:#dbeafe}
 @media(max-width:600px){#a4Preview .preview-page{width:100%!important;max-width:100%!important}#a4Preview .layout-controls{grid-template-columns:1fr 1fr!important;gap:10px!important}#a4Preview .layout-controls label{min-width:0}#a4Preview .range-nudge{width:29px;height:29px}}
+
+/* Final layout controls */
+.clean-final-controls{align-items:end;background:#fff;border:1px solid #e5eaf1;box-shadow:0 6px 20px rgba(15,23,42,.06)}
+.clean-final-controls label{min-width:150px}
+.clean-final-controls .person-select-label{grid-column:span 2}
+.clean-final-controls .apply-all-btn{min-height:38px;white-space:nowrap}
+.clean-final-controls .check-row{display:flex!important;align-items:center;gap:8px;min-height:38px}
+.range-nudges{display:inline-flex;gap:4px;margin-left:6px}
+.range-nudge{width:28px;height:28px;border:1px solid #d7dee8;border-radius:7px;background:#fff;cursor:pointer}
+@media(max-width:600px){.clean-final-controls{grid-template-columns:1fr 1fr!important;padding:10px;gap:9px!important}.clean-final-controls .person-select-label,.clean-final-controls .apply-all-btn{grid-column:1/-1}.clean-final-controls label{min-width:0}}

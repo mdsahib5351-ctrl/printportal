@@ -357,12 +357,67 @@ async function renderCrop(c,outSize=null){
 }
 function prepareFinalPreview(){const wf=state.workflow;if(!wf)return;const p=wf.persons[0];if(wf.type==="passport"&&!wf.persons.length)return toast("Add at least one person","warn");if(wf.type==="passport"&&wf.persons.some(x=>!x.front))return toast("Choose a photo for every person","warn");if(wf.type!=="passport"&&!wf.persons.some(x=>x.front))return toast("Add at least one front side","warn");renderA4Preview();setStep("preview")}
 function setStep(step){$("#stepUpload").classList.toggle("hidden",step!=="upload");$("#stepPreview").classList.toggle("hidden",step!=="preview");$$("#stepper span").forEach((s,i)=>s.classList.toggle("active",step==="upload"?i===0:i>=2))}
-function currentItems(){const wf=state.workflow;if(wf.type==="passport"){const s=wf.photoSettings,items=[];wf.persons.filter(p=>p.front).forEach(p=>{const q=Math.max(1,p.quantity||6),im=p.front.image||{};const nw=Math.max(1,Number(im.naturalWidth)||1),nh=Math.max(1,Number(im.naturalHeight)||1);/* Preserve the exact crop aspect ratio. Photo Size scales both dimensions together; it never changes the crop ratio. */const scale=Math.max(.1,Number(s.photoScale)||100)/100;const w=nw/300*25.4*scale,h=nh/300*25.4*scale;const borderMm=s.border?Math.max(0,Number(s.borderWidth)||0):0;for(let i=0;i<q;i++)items.push({src:p.front.url,type:"photo",w,h,border:s.border,borderMm})});return items}const a=[];wf.persons.filter(x=>x.front).forEach((p,index)=>{a.push({src:p.front.url,type:"card",w:85.6,h:54,person:index+1,side:"front"});if(p.back)a.push({src:p.back.url,type:"card",w:85.6,h:54,person:index+1,side:"back"})});return a}
+function getPersonSettings(person) {
+  const wf = state.workflow;
+  const global = wf?.photoSettings || {};
+  if (!person.layoutSettings) {
+    person.layoutSettings = {
+      photoScale: Number(global.photoScale ?? 100),
+      gapX: Number(global.gapX ?? 2),
+      gapY: Number(global.gapY ?? 2),
+      border: global.border ?? false,
+      borderWidth: Number(global.borderWidth ?? 0.5)
+    };
+  }
+  return person.layoutSettings;
+}
+function currentItems(){
+  const wf=state.workflow;
+  if(wf.type==="passport"){
+    const items=[];
+    wf.persons.filter(p=>p.front).forEach(p=>{
+      const s=getPersonSettings(p);
+      const q=Math.max(1,Number(p.quantity)||6),im=p.front.image||{};
+      const nw=Math.max(1,Number(im.naturalWidth)||1),nh=Math.max(1,Number(im.naturalHeight)||1);
+      const scale=Math.max(.1,Number(s.photoScale)||100)/100;
+      const w=nw/300*25.4*scale,h=nh/300*25.4*scale;
+      const borderMm=s.border?Math.max(0,Number(s.borderWidth)||0):0;
+      for(let i=0;i<q;i++)items.push({src:p.front.url,type:"photo",w,h,border:!!s.border,borderMm,personId:p.id});
+    });
+    return items;
+  }
+  const a=[];
+  wf.persons.filter(x=>x.front).forEach((p,index)=>{
+    a.push({src:p.front.url,type:"card",w:85.6,h:54,person:index+1,side:"front"});
+    if(p.back)a.push({src:p.back.url,type:"card",w:85.6,h:54,person:index+1,side:"back"});
+  });
+  return a;
+}
 function getPaper(wf){const l=wf?.layoutSettings||{};const presets={a4:[210,297],a5:[148,210],letter:[215.9,279.4],legal:[215.9,355.6]};if(l.paper==="custom")return{width:Math.max(30,+l.width||210),height:Math.max(30,+l.height||297)};const [width,height]=presets[l.paper]||presets.a4;return{width,height}}
 function layoutPages(wf){if(wf.type==="passport")return passportPages(wf);const paper=getPaper(wf),pages=[[]],mx=8,my=8,cw=85.6,ch=54,gap=8,pairGap=8;let y=my;for(const p of wf.persons.filter(x=>x.front)){if(y+ch>paper.height-my){pages.push([]);y=my}pages.at(-1).push({src:p.front.url,type:"card",w:cw,h:ch,x:mx,y,person:pages.at(-1).length+1,side:"front"});if(p.back)pages.at(-1).push({src:p.back.url,type:"card",w:cw,h:ch,x:mx+cw+pairGap,y,person:pages.at(-1).length+1,side:"back"});y+=ch+gap}return pages.map(items=>items.map(it=>({...it}))).filter(page=>page.length)}
-function passportPages(wf){const s=wf.photoSettings,paper=getPaper(wf),items=currentItems(),pages=[[]];let x=8,y=8;for(const it of items){if(x+it.w>paper.width-8){x=8;y+=it.h+s.gapY}if(y+it.h>paper.height-8){pages.push([]);x=8;y=8}pages.at(-1).push({...it,x,y,border:s.border});x+=it.w+s.gapX}return pages}
+function passportPages(wf){
+  const paper=getPaper(wf),items=currentItems(),pages=[[]];
+  let x=8,y=8,rowH=0,rowGap=0;
+  for(const it of items){
+    const person=wf.persons.find(p=>p.id===it.personId)||wf.persons[0];
+    const s=getPersonSettings(person);
+    const gapX=Math.max(0,Number(s.gapX)||0),gapY=Math.max(0,Number(s.gapY)||0);
+    if(x+it.w>paper.width-8){x=8;y+=rowH+rowGap;rowH=0;rowGap=gapY}
+    if(y+it.h>paper.height-8){pages.push([]);x=8;y=8;rowH=0;rowGap=0}
+    pages.at(-1).push({...it,x,y,border:!!s.border,borderMm:s.border?Math.max(0,Number(s.borderWidth)||0):0});
+    x+=it.w+gapX;rowH=Math.max(rowH,it.h);rowGap=Math.max(rowGap,gapY);
+  }
+  return pages.filter(page=>page.length);
+}
 function renderPassportPagesOnly(){const wf=state.workflow;if(!wf)return;const paper=getPaper(wf);els.a4Preview.querySelectorAll(".page-label,.preview-page").forEach(n=>n.remove());const pages=layoutPages(wf);for(const [pi,items] of pages.entries()){const lab=document.createElement("div");lab.className="page-label";lab.textContent=`${paper.width} × ${paper.height} mm • Page ${pi+1} • ${pages.length} total`;els.a4Preview.appendChild(lab);const page=document.createElement("div");page.className="a4-page preview-page";page.style.aspectRatio=`${paper.width}/${paper.height}`;page.style.setProperty("--paper-ratio",`${paper.width}/${paper.height}`);els.a4Preview.appendChild(page);for(const it of items){const d=document.createElement("div");d.className="a4-item";Object.assign(d.style,{left:`${it.x/paper.width*100}%`,top:`${it.y/paper.height*100}%`,width:`${it.w/paper.width*100}%`,height:`${it.h/paper.height*100}%`});if(it.border&&it.borderMm>0)d.style.border=`${it.borderMm}mm solid #111`;const im=new Image();im.src=it.src;d.appendChild(im);if($("#cutMarks")?.checked&&wf.type!=="passport")d.classList.add("mark");page.appendChild(d)}}}
-async function renderA4Preview(){const wf=state.workflow;if(!wf)return;els.a4Preview.innerHTML="";const paper=getPaper(wf);const bar=document.createElement("div");bar.className="final-controls layout-controls";bar.innerHTML=`${wf.type==="passport"?`<label>Photo size <input id="photoSizeSlider" type="range" min="25" max="200" step="1" value="${wf.photoSettings.photoScale}"><span id="photoSizeValue">${wf.photoSettings.photoScale}%</span></label><label>Horizontal gap <input id="gapXSlider" type="range" min="0" max="10" step="0.5" value="${wf.photoSettings.gapX}"><span id="gapXValue">${wf.photoSettings.gapX} mm</span></label><label>Vertical gap <input id="gapYSlider" type="range" min="0" max="10" step="0.5" value="${wf.photoSettings.gapY}"><span id="gapYValue">${wf.photoSettings.gapY} mm</span></label><label class="check-row">Black border <input id="photoBorder" type="checkbox" ${wf.photoSettings.border?"checked":""}></label><label>Border thickness <input id="borderWidthSlider" type="range" min="0.1" max="3" step="0.1" value="${wf.photoSettings.borderWidth}" ${wf.photoSettings.border?"":"disabled"}><span id="borderWidthValue">${wf.photoSettings.borderWidth} mm</span></label>`:""}<label>Paper <select id="paperSize"><option value="a4">A4</option><option value="a5">A5</option><option value="letter">Letter</option><option value="legal">Legal</option><option value="custom">Custom</option></select></label><label id="customPaperWrap" class="hidden">W <input id="customPaperW" type="number" min="30" max="500" step="1" value="${paper.width}"> H <input id="customPaperH" type="number" min="30" max="500" step="1" value="${paper.height}"></label>`;els.a4Preview.appendChild(bar);const ps=$("#paperSize");ps.value=wf.layoutSettings.paper;bindLayoutControls();if(wf.type==="passport"){bindPassportControls();renderPassportPagesOnly();return}const pages=layoutPages(wf);for(const [pi,items] of pages.entries()){const lab=document.createElement("div");lab.className="page-label";lab.textContent=`${paper.width} × ${paper.height} mm • Page ${pi+1} • ${pages.length} total`;els.a4Preview.appendChild(lab);const page=document.createElement("div");page.className="a4-page preview-page";page.style.aspectRatio=`${paper.width}/${paper.height}`;page.style.setProperty("--paper-ratio",`${paper.width}/${paper.height}`);els.a4Preview.appendChild(page);for(const it of items){const d=document.createElement("div");d.className="a4-item";Object.assign(d.style,{left:`${it.x/paper.width*100}%`,top:`${it.y/paper.height*100}%`,width:`${it.w/paper.width*100}%`,height:`${it.h/paper.height*100}%`});if(it.border&&it.borderMm>0)d.style.border=`${it.borderMm}mm solid #111`;const im=new Image();im.src=it.src;d.appendChild(im);if($("#cutMarks")?.checked)d.classList.add("mark");page.appendChild(d)}}}
+async function renderA4Preview(){
+  const wf=state.workflow;if(!wf)return;
+  els.a4Preview.innerHTML="";const paper=getPaper(wf);
+  const bar=document.createElement("div");bar.className="final-controls layout-controls clean-final-controls";
+  bar.innerHTML=`${wf.type==="passport"?`<label class="person-select-label">Edit person <select id="finalPersonSelect">${wf.persons.map((p,i)=>`<option value="${p.id}">Person ${i+1}</option>`).join("")}</select></label><label>Photo size <input id="photoSizeSlider" type="range" min="25" max="200" step="1"><span id="photoSizeValue"></span></label><label>Horizontal gap <input id="gapXSlider" type="range" min="0" max="10" step="0.5"><span id="gapXValue"></span></label><label>Vertical gap <input id="gapYSlider" type="range" min="0" max="10" step="0.5"><span id="gapYValue"></span></label><label class="check-row">Black border <input id="photoBorder" type="checkbox"></label><label>Border thickness <input id="borderWidthSlider" type="range" min="0.1" max="3" step="0.1"><span id="borderWidthValue"></span></label><button id="applyPassportSettingsAll" type="button" class="btn primary apply-all-btn">Apply to All</button>`:""}<label>Paper <select id="paperSize"><option value="a4">A4</option><option value="a5">A5</option><option value="letter">Letter</option><option value="legal">Legal</option><option value="custom">Custom</option></select></label><label id="customPaperWrap" class="hidden">W <input id="customPaperW" type="number" min="30" max="500" step="1" value="${paper.width}"> H <input id="customPaperH" type="number" min="30" max="500" step="1" value="${paper.height}"></label>`;
+  els.a4Preview.appendChild(bar);const ps=$("#paperSize");ps.value=wf.layoutSettings.paper;bindLayoutControls();
+  if(wf.type==="passport"){bindPassportControls();renderPassportPagesOnly();return}
+  const pages=layoutPages(wf);for(const [pi,items] of pages.entries()){const lab=document.createElement("div");lab.className="page-label";lab.textContent=`${paper.width} × ${paper.height} mm • Page ${pi+1} • ${pages.length} total`;els.a4Preview.appendChild(lab);const page=document.createElement("div");page.className="a4-page preview-page";page.style.aspectRatio=`${paper.width}/${paper.height}`;page.style.setProperty("--paper-ratio",`${paper.width}/${paper.height}`);els.a4Preview.appendChild(page);for(const it of items){const d=document.createElement("div");d.className="a4-item";Object.assign(d.style,{left:`${it.x/paper.width*100}%`,top:`${it.y/paper.height*100}%`,width:`${it.w/paper.width*100}%`,height:`${it.h/paper.height*100}%`});if(it.border&&it.borderMm>0)d.style.border=`${it.borderMm}mm solid #111`;const im=new Image();im.src=it.src;d.appendChild(im);if($("#cutMarks")?.checked)d.classList.add("mark");page.appendChild(d)}}}
 
 function bindLayoutControls(){
   const wf=state.workflow;
@@ -384,47 +439,16 @@ function bindLayoutControls(){
 }
 
 function bindPassportControls(){
-  const s=state.workflow.photoSettings;
-  const specs=[
-    ["#photoSizeSlider","#photoSizeValue",v=>`${v}%`,"photoScale",1],
-    ["#gapXSlider","#gapXValue",v=>`${v} mm`,"gapX",0.5],
-    ["#gapYSlider","#gapYValue",v=>`${v} mm`,"gapY",0.5],
-    ["#borderWidthSlider","#borderWidthValue",v=>`${v} mm`,"borderWidth",0.1]
-  ];
-  let raf=0;
-  const schedule=()=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>renderPassportPagesOnly())};
-  for(const [selector,valueSelector,format,key,step] of specs){
-    const input=$(selector); if(!input)continue;
-    const output=$(valueSelector);
-    const update=()=>{
-      s[key]=Number(input.value);
-      if(output)output.textContent=format(s[key]);
-      schedule();
-    };
-    input.addEventListener("input",update,{passive:true});
-    // Add accessible +/- nudges alongside each slider, preserving its native drag behavior.
-    const label=input.closest("label");
-    if(label&&!label.querySelector(".range-nudges")){
-      const nudges=document.createElement("span");nudges.className="range-nudges";
-      const minus=document.createElement("button");minus.type="button";minus.className="range-nudge";minus.textContent="−";minus.setAttribute("aria-label","Decrease");
-      const plus=document.createElement("button");plus.type="button";plus.className="range-nudge";plus.textContent="+";plus.setAttribute("aria-label","Increase");
-      const changeBy=delta=>{
-        const min=Number(input.min||0),max=Number(input.max||100);
-        const next=Math.max(min,Math.min(max,Number(input.value)+delta));
-        const decimals=(String(step).split(".")[1]||"").length;
-        input.value=next.toFixed(decimals).replace(/\.?0+$/,"");
-        input.dispatchEvent(new Event("input",{bubbles:true}));
-      };
-      minus.addEventListener("click",()=>changeBy(-step));
-      plus.addEventListener("click",()=>changeBy(step));
-      nudges.append(minus,plus);label.appendChild(nudges);
-    }
-  }
-  $("#photoBorder")?.addEventListener("change",e=>{
-    s.border=e.target.checked;
-    $("#borderWidthSlider")?.toggleAttribute("disabled",!s.border);
-    schedule();
-  });
+  const wf=state.workflow;if(!wf)return;
+  const select=$("#finalPersonSelect");
+  const getSelected=()=>wf.persons.find(p=>p.id===select?.value)||wf.persons[0];
+  const sync=()=>{const p=getSelected();if(!p)return;const s=getPersonSettings(p);const map=[["#photoSizeSlider","#photoSizeValue",s.photoScale,v=>`${v}%`],["#gapXSlider","#gapXValue",s.gapX,v=>`${v} mm`],["#gapYSlider","#gapYValue",s.gapY,v=>`${v} mm`],["#borderWidthSlider","#borderWidthValue",s.borderWidth,v=>`${v} mm`]];map.forEach(([a,b,val,fmt])=>{const el=$(a),out=$(b);if(el)el.value=val;if(out)out.textContent=fmt(val)});const border=$("#photoBorder"),bw=$("#borderWidthSlider");if(border)border.checked=!!s.border;if(bw)bw.disabled=!s.border};
+  sync();select?.addEventListener("change",sync);
+  const specs=[["#photoSizeSlider","photoScale",1],["#gapXSlider","gapX",0.5],["#gapYSlider","gapY",0.5],["#borderWidthSlider","borderWidth",0.1]];
+  let raf=0;const schedule=()=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>renderPassportPagesOnly())};
+  specs.forEach(([selector,key])=>{const input=$(selector);if(!input)return;const output=$(selector.replace("Slider","Value"));input.addEventListener("input",()=>{const p=getSelected();if(!p)return;const s=getPersonSettings(p);s[key]=Number(input.value);if(output)output.textContent=key==="photoScale"?`${s[key]}%`:`${s[key]} mm`;schedule()},{passive:true});const label=input.closest("label");if(label&&!label.querySelector(".range-nudges")){const nudges=document.createElement("span");nudges.className="range-nudges";const minus=document.createElement("button");minus.type="button";minus.className="range-nudge";minus.textContent="−";const plus=document.createElement("button");plus.type="button";plus.className="range-nudge";plus.textContent="+";const changeBy=d=>{const min=Number(input.min||0),max=Number(input.max||100);const next=Math.max(min,Math.min(max,Number(input.value)+d));input.value=String(next);input.dispatchEvent(new Event("input",{bubbles:true}))};minus.onclick=()=>changeBy(-Number(input.step||1));plus.onclick=()=>changeBy(Number(input.step||1));nudges.append(minus,plus);label.appendChild(nudges)}});
+  $("#photoBorder")?.addEventListener("change",e=>{const p=getSelected();if(!p)return;const s=getPersonSettings(p);s.border=e.target.checked;$("#borderWidthSlider")?.toggleAttribute("disabled",!s.border);schedule()});
+  $("#applyPassportSettingsAll")?.addEventListener("click",()=>{const source=getSelected();if(!source)return;const src={...getPersonSettings(source)};wf.persons.forEach(p=>p.layoutSettings={...src});sync();schedule();toast("Settings applied to all persons","success")});
 }
 
 function openSectionFull(type){
