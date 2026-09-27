@@ -77,6 +77,8 @@ function resetTemplate(){
 
   $("#tplName").value = "";
   $("#tplFile").value = "";
+  $("#tplCardWidth").value = "85.6";
+  $("#tplCardHeight").value = "54";
 
   $("#tplFileInfo").textContent =
     "Choose a PDF to continue.";
@@ -129,6 +131,12 @@ async function editTemplate(id){
 
   $("#tplName").value =
     t.name || "";
+
+  $("#tplCardWidth").value =
+    Number(t.cardWidthMm || t.widthMm || 85.6);
+
+  $("#tplCardHeight").value =
+    Number(t.cardHeightMm || t.heightMm || 54);
 
   $("#tplFileInfo").textContent =
     "Select the original/source PDF to edit this template.";
@@ -2425,6 +2433,12 @@ async function saveTemplate(){
       },
 
 
+      cardWidthMm:
+        Math.max(5, Math.min(500, Number($("#tplCardWidth").value) || 85.6)),
+
+      cardHeightMm:
+        Math.max(5, Math.min(500, Number($("#tplCardHeight").value) || 54)),
+
       pageCount:
         state.tplPdf.numPages,
 
@@ -2557,7 +2571,7 @@ function renderTemplates(){
               </b>
 
               <small>
-                Front + Back crop configuration
+                Front + Back crop • ${Number(t.cardWidthMm || t.widthMm || 85.6)} × ${Number(t.cardHeightMm || t.heightMm || 54)} mm
               </small>
 
             </div>
